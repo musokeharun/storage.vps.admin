@@ -25,8 +25,9 @@ app.use(cookieParser());
 // Show routes called in console during development
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
-    app.use(cors());
 }
+
+app.use(cors());
 
 // Security
 if (process.env.NODE_ENV === 'production') {
