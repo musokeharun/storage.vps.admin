@@ -5,6 +5,7 @@ import CloudUploadStorage from "../schemas/CloudUploadStorage";
 import {StatusCodes} from "http-status-codes";
 import {validate} from "../../utils/validate";
 import ParseServer from "../../implementations/ParseServer";
+import {GetFilesOptions} from "@google-cloud/storage";
 
 export async function createResumableUrl(req: Request, res: Response) {
 
@@ -12,10 +13,8 @@ export async function createResumableUrl(req: Request, res: Response) {
 
     const schema = Joi.object({
         path: Joi.string()
-            .alphanum()
             .required(),
         title: Joi.string()
-            .alphanum()
             .required(),
         total: Joi.number()
             .required()
@@ -33,9 +32,8 @@ export async function createResumableUrl(req: Request, res: Response) {
     const googleBucket = await GoogleCloud.bucket();
     let file = googleBucket.file(path + "/" + title);
     let resumeUrl = await file.createResumableUpload({
-        origin: "127.0.0.1:3000"
+        origin: "http://localhost:3001"
     });
-
 
     // return res.send(resumeUrl);
 
@@ -47,7 +45,7 @@ export async function createResumableUrl(req: Request, res: Response) {
     let savedCloudUploadStorage = await cloudUploadStorage.save();
 
     const token = savedCloudUploadStorage.get("token");
-    console.log("Saved", savedCloudUploadStorage.toJSON())
+    console.log("Saved", req.hostname, savedCloudUploadStorage.toJSON())
     // RETURN
     if (!token)
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -55,7 +53,8 @@ export async function createResumableUrl(req: Request, res: Response) {
         }).end();
 
     res.json({
-        token
+        token,
+        url: resumeUrl.toString()
     })
 }
 
@@ -116,4 +115,32 @@ export const download = async (req: Request, res: Response) => {
     }
 
 
+}
+
+export const listBucketFiles = async (req: Request, res: Response) => {
+
+    const {page = 1, folder = ""} = req.query;
+
+    const bucket = await GoogleCloud.bucket();
+    let options: GetFilesOptions = {
+        includeTrailingDelimiter: true,
+        delimiter: "/",
+        maxResults: 20
+    };
+    const [files, nextPageToken] = await bucket.getFiles(options);
+
+    // console.log(files[0])
+
+    console.log(nextPageToken)
+    let filesMade = files.map(file => (
+        {
+            name: file.name,
+            url: file.metadata.selfLink,
+            contentType: file.metadata.contentType,
+            updatedAt: file.metadata.updatedAt,
+            size: file.metadata.size
+        }
+    ));
+    res.setHeader("NEXT_PAGE", nextPageToken && nextPageToken.toString());
+    res.json(filesMade).end();
 }
