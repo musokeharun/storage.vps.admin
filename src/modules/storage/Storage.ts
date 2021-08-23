@@ -32,7 +32,7 @@ export async function createResumableUrl(req: Request, res: Response) {
     const googleBucket = await GoogleCloud.bucket();
     let file = googleBucket.file(path + "/" + title);
     let resumeUrl = await file.createResumableUpload({
-        origin: "http://localhost:3001"
+        origin: req.get('host') || req.hostname || req.headers.origin || "http://localhost:3000"
     });
 
     // return res.send(resumeUrl);
